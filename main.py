@@ -1,0 +1,1 @@
+from blogging_app import app
