@@ -8,6 +8,21 @@ class SignIn(BaseModel):
     email: str
     password: str
 
+class SignUp(SignIn):
+    first_name: str
+    last_name: str
+    usermame: str
+    
+class Users(BaseModel):
+    first_name: str
+    last_name: str
+    usermame: str
+    email: str
+    password: str
+
+users: [Users] = []
+
+
 class Article(BaseModel):
     title: str
     content: str
@@ -15,25 +30,26 @@ class Article(BaseModel):
     updated_at: datetime.datetime
     # author: get author name from class User
 
-class SocialMediaLinks(BaseModel):
-    twitter: str | None = None
-    facebook: str | None = None
-    instagram: str | None = None
+# class SocialMediaLinks(BaseModel):
+#     twitter: str | None = None
+#     facebook: str | None = None
+#     instagram: str | None = None
 
-class User(BaseModel):
-    id: int
-    username: str
-    email: str
-    name: str
-    bio: str | None = "Write something about yourself!"
-    avatar_url: str | None = None
-    website_url: str | None = None
-    social_media_links: SocialMediaLinks
-    acct_created_at: datetime.datetime
-    last_updated_at: datetime.datetime
-    role: str
-    following_count: int
-    follower_count: int
-    post_count: int
-    comment_count: int
-    posts: List[Article]
+# class UserProfile(BaseModel):
+#     username: str
+#     name: str
+#     email: str
+#     bio: str | None = "Write something about yourself!"
+#     avatar_url: str | None = None
+#     website_url: str | None = None
+#     social_media_links: SocialMediaLinks
+#     acct_created_at: datetime.datetime
+#     last_updated_at: datetime.datetime
+#     role: str
+#     following_count: int
+#     follower_count: int
+#     post_count: int
+#     comment_count: int
+#     posts: List[Article]
+
+# usersDB: [UserProfile] = []
