@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Annotated
 import datetime
 
 
@@ -12,20 +12,22 @@ class User(BaseModel):
     email: str
     password: str
 
-class CreateArticle(BaseModel):
-    title: str
-    content: str
-    created_at: datetime.datetime
-    updated_at: datetime.datetime
-    author: str
-
 class Articles(BaseModel):
     title: str
     author: str
     content: str
-    date_pblished: str
+    date_published: str
 
-all_articles: List[Articles] = []
+class UpdateArticle(BaseModel):
+    title: str
+    content: str
+
+class UpdateArticleResponse(BaseModel):
+    title: str
+    author: str
+    content: str
+    date_published: str
+    last_updated: datetime.datetime
 
 class SocialMediaLinks(BaseModel):
     twitter: str | None = None
@@ -44,4 +46,4 @@ class UserProfile(BaseModel):
     follower_count: int
     post_count: int
     comment_count: int
-    posts: List[CreateArticle]
+    posts: List[Articles]

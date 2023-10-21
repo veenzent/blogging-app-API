@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Form, HTTPException
 from typing import Annotated
 from uuid import UUID
-from blogging_app.models import User, UserProfile, all_articles, Articles
+from blogging_app.models import User, UserProfile, Articles, UpdateArticle, UpdateArticleResponse
+import random
 import csv
 import datetime
-from blogging_app.reusables import get_total_users
+from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache
 
 
 home_routes = APIRouter()
@@ -22,13 +23,20 @@ async def about():
 async def contacts():
     return {"message": "Contacts Page coming soon!"}
 
+
 # list of blogs published by various users
 @home_routes.get("/trending_articles")
 async def trending_articles():
-    if all_articles:
-        trending = [i for i, article in enumerate(all_articles) if i < 6]
-        return {"Trending Articles": trending}
-    return{"Trending Articles": []}
+    with open("blogging_app/all_articles.csv", "r") as all_articles:
+        reader = csv.reader(all_articles)
+        next(reader)
+        trending = []
+        for i, article in enumerate(reader):
+            if i <= 4:
+                article = Articles(title=article[0], author=article[1], content=article[2], date_published=article[3])
+                trending.append(article)
+    return{"Trending Articles": trending}
+
 
 # - - - - - W R I T E - A R T I C L E - - - - -
 @home_routes.post("/write", response_model=Articles)
@@ -37,6 +45,7 @@ async def write_article(
     title: Annotated[str, Form()],
     content: Annotated[str, Form(...)]
 ):
+    # get author
     author = ""
     with open("blogging_app/UsersDB.csv", "r") as UsersDB:
         reader = csv.reader(UsersDB)
@@ -44,9 +53,11 @@ async def write_article(
         for user in reader:
             if username == user[1]:
                 author = f"{user[2]} {user[3]}"
-                article = Articles(title=title, author=author, content=content, date_pblished=datetime.datetime.now())
-            return article
-    return {"message": "User not found, Sign up to write an article!"}
+                article = Articles(title=title, author=author, content=content, date_published=str(datetime.datetime.now()))
+                add_article_to_DB(article)
+                return article
+    raise HTTPException(status_code=404, detail="User not found, Sign up to write an article!")
+
 
 # - - - - - S I G N - U P - - - - -
 @home_routes.post("/sign-up")
@@ -72,6 +83,8 @@ async def sign_up(
             writer.writerow(row)
     return {"message": "Sign-up successful!"}
 
+
+# - - - - - L O G I N / S I G N - I N- - - - - -
 @home_routes.post("/sign-in")
 async def sign_in(
   username: Annotated[str, Form(max_length=100)],
@@ -83,8 +96,27 @@ async def sign_in(
         for user in reader:
             if username == user[1] and password == user[-1]:
                 return {"message": f"Welcome back {user[2]}!"}
-        return HTTPException(status_code=401, detail="Username and/or password incorrect")
+        raise HTTPException(status_code=401, detail="Username and/or password incorrect")
 
-@home_routes.put("/update-profile/{username}")
-async def update_profile(username: str, profile: UserProfile):
-    return {"message": "Profile updated successfully!"}
+
+# - - - - - E D I T - A R T I C L E - - - - -
+@home_routes.put("/account/{username}/{title}/edit-article", response_model=UpdateArticleResponse)
+async def edit_article(username: str, title: str, updated_article: UpdateArticle):
+    user = username_in_DB(username)
+    if user:
+        caches = all_articles_cache()
+
+        with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
+            writer = csv.writer(all_articles)
+            for i, article in enumerate(caches):
+                if title == article[0]:
+                    update = [updated_article.title, caches[i][1], updated_article.content, caches[i][3]]
+                    writer.writerow(update)
+                else:
+                    writer.writerow(article)
+        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.now())
+    raise HTTPException(status_code=404, detail="Title not found!")
+
+# @home_routes.put("/update-profile/{username}")
+# async def update_profile(username: str, profile: UserProfile):
+#     return {"message": "Profile updated successfully!"}
