@@ -2,16 +2,15 @@ from fastapi import APIRouter, Form, HTTPException
 from typing import Annotated
 from uuid import UUID
 from blogging_app.models import User, UserProfile, Articles, UpdateArticle, UpdateArticleResponse
-import random
 import csv
 import datetime
-from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache
+from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, username_in_DB, add_user_to_DB
 
 
 home_routes = APIRouter()
 
 
-@home_routes.get("/")
+@home_routes.get("/index")
 async def home():
     return {"message": "Curiosity births Innovations. Discover articles, thoughts, and professionals from authors on any topic"}
 
@@ -24,7 +23,7 @@ async def contacts():
     return {"message": "Contacts Page coming soon!"}
 
 
-# list of blogs published by various users
+# - - - - - T R E N D I N G - A R T I C L E S - - - - -
 @home_routes.get("/trending_articles")
 async def trending_articles():
     with open("blogging_app/all_articles.csv", "r") as all_articles:
@@ -69,18 +68,18 @@ async def sign_up(
   password: Annotated[str, Form(max_length=100)],
   confirm_password: Annotated[str, Form(max_length=100)]
 ):
+    if username_in_DB(username):
+        raise HTTPException(status_code=400, detail="Username already exists!")
     if confirm_password == password:
         total_users = get_total_users()
         id = str(UUID(int=total_users + 1))
-        new_user= User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=password)
+        new_user = User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=password)
 
         # new user details
         row = [new_user.id, new_user.username, new_user.first_name, new_user.last_name, new_user.email, new_user.password]
 
         # add new user to database
-        with open("./blogging_app/UsersDB.csv", "a", newline="") as UsersDB:
-            writer = csv.writer(UsersDB)
-            writer.writerow(row)
+        add_user_to_DB(new_user)
     return {"message": "Sign-up successful!"}
 
 
@@ -99,8 +98,15 @@ async def sign_in(
         raise HTTPException(status_code=401, detail="Username and/or password incorrect")
 
 
+# - - - - - U P D A T E - P R O F I L E - - - - -
+@home_routes.put("/dashboard/{username}/update-profile", response_model=UserProfile)
+async def update_profile(username: str, profile: UserProfile):
+
+    return {"message": "Profile updated successfully!"}
+
+
 # - - - - - E D I T - A R T I C L E - - - - -
-@home_routes.put("/account/{username}/{title}/edit-article", response_model=UpdateArticleResponse)
+@home_routes.put("/dashboaard/{username}/{title}/edit-article", response_model=UpdateArticleResponse)
 async def edit_article(username: str, title: str, updated_article: UpdateArticle):
     user = username_in_DB(username)
     if user:
@@ -116,7 +122,3 @@ async def edit_article(username: str, title: str, updated_article: UpdateArticle
                     writer.writerow(article)
         return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.now())
     raise HTTPException(status_code=404, detail="Title not found!")
-
-# @home_routes.put("/update-profile/{username}")
-# async def update_profile(username: str, profile: UserProfile):
-#     return {"message": "Profile updated successfully!"}
