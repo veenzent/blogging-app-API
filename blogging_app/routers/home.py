@@ -24,8 +24,8 @@ async def contacts():
 
 
 # - - - - - T R E N D I N G - A R T I C L E S - - - - -
-@home_routes.get("/trending_articles")
-async def trending_articles():
+@home_routes.get("/get-blogs")
+async def get_blogs():
     with open("blogging_app/all_articles.csv", "r") as all_articles:
         reader = csv.reader(all_articles)
         next(reader)
@@ -38,8 +38,8 @@ async def trending_articles():
 
 
 # - - - - - W R I T E - A R T I C L E - - - - -
-@home_routes.post("/write", response_model=Articles)
-async def write_article(
+@home_routes.post("/create-blog", response_model=Articles)
+async def create_blog(
     username: Annotated[str, Form(max_length=100)],
     title: Annotated[str, Form()],
     content: Annotated[str, Form(...)]
@@ -56,6 +56,25 @@ async def write_article(
                 add_article_to_DB(article)
                 return article
     raise HTTPException(status_code=404, detail="User not found, Sign up to write an article!")
+
+
+# - - - - - E D I T - A R T I C L E - - - - -
+@home_routes.put("/dashboaard/{username}/{title}/edit-blog", response_model=UpdateArticleResponse)
+async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
+    user = username_in_DB(username)
+    if user:
+        caches = all_articles_cache()
+
+        with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
+            writer = csv.writer(all_articles)
+            for i, article in enumerate(caches):
+                if title == article[0]:
+                    update = [updated_article.title, caches[i][1], updated_article.content, caches[i][3]]
+                    writer.writerow(update)
+                else:
+                    writer.writerow(article)
+        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.now())
+    raise HTTPException(status_code=404, detail="Title not found!")
 
 
 # - - - - - S I G N - U P - - - - -
@@ -103,22 +122,3 @@ async def sign_in(
 async def update_profile(username: str, profile: UserProfile):
 
     return {"message": "Profile updated successfully!"}
-
-
-# - - - - - E D I T - A R T I C L E - - - - -
-@home_routes.put("/dashboaard/{username}/{title}/edit-article", response_model=UpdateArticleResponse)
-async def edit_article(username: str, title: str, updated_article: UpdateArticle):
-    user = username_in_DB(username)
-    if user:
-        caches = all_articles_cache()
-
-        with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
-            writer = csv.writer(all_articles)
-            for i, article in enumerate(caches):
-                if title == article[0]:
-                    update = [updated_article.title, caches[i][1], updated_article.content, caches[i][3]]
-                    writer.writerow(update)
-                else:
-                    writer.writerow(article)
-        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.now())
-    raise HTTPException(status_code=404, detail="Title not found!")
