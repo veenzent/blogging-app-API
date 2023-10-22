@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional
 import datetime
 
 
@@ -30,19 +30,13 @@ class UpdateArticleResponse(BaseModel):
     last_updated: datetime.datetime
 
 class SocialMediaLinks(BaseModel):
-    twitter: str | None = None
-    facebook: str | None = None
-    instagram: str | None = None
+    twitter: str | None = " "
+    facebook: str | None = " "
+    instagram: str | None = " "
 
-class UserProfile(BaseModel):
-    user: User
-    bio: str | None = "Write something about yourself!"
-    website: str | None = None
-    social_media_links: SocialMediaLinks
-    acct_created_at: datetime.datetime
-    last_updated_at: datetime.datetime
-    following_count: int
-    followers_count: int
-    posts_count: int
-    comment_count: int
+class UserProfile(User, SocialMediaLinks):
+    bio: Optional[str | None] = "Write something about yourself!"
+    website: str | None = " "
+    last_updated_at: str
     posts: List[Articles]
+    posts_count: int
