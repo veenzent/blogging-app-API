@@ -1,7 +1,8 @@
-"id", "username", "first_name", "last_name", "email", "password"
+"id", "username", "first_name", "last_name", "email", "password", bio, website, social_media.twitter, social_media.facebook, social_media.instagam, acct_created_at, last_updated_at, following_count, followers_count, posts_count, comment_count, posts, total_posts
 00000000-0000-0000-0000-000000000001,veenzent,Vincent,Odume,gmail.com,123456
 00000000-0000-0000-0000-000000000002,ray_ray,Onoja,Raymond,gmail.com,12345
 00000000-0000-0000-0000-000000000003,Mike,Michael,Odume,gmail.com,123456
 00000000-0000-0000-0000-000000000004,jawon,Joy,Omowori,hjkl,123456789
 00000000-0000-0000-0000-000000000005,kcee,Kyles,Xavier,outlook.com,1234569
 00000000-0000-0000-0000-000000000006,evangel,Success,Towu,@gmail.com,town_success
+00000000-0000-0000-0000-000000000007,sly-sly,Tasha,Cobbs,@gmail.com,12345678

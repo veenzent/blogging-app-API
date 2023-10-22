@@ -1,7 +1,7 @@
 import csv
 
 # get total users in database
-def get_total_users():
+def get_total_users() -> int:
     with open("blogging_app/UsersDB.csv", "r") as UsersDB:
         reader = csv.reader(UsersDB)
         next(reader)
@@ -14,7 +14,7 @@ def add_article_to_DB(article):
         writer.writerow([article.title, article.author, article.content, article.date_published])
     return
 
-def username_in_DB(username):
+def username_in_DB(username: str) -> bool:
     with open("blogging_app/UsersDB.csv", ) as UsersDB:
         reader = csv.reader(UsersDB)
         next(reader)
@@ -23,7 +23,13 @@ def username_in_DB(username):
                 return True
     return False
 
-def find_article_by_title(title):
+def add_user_to_DB(user: list):
+    with open("blogging_app/UsersDB.csv", "a", newline="") as UsersDB:
+        writer = csv.writer(UsersDB)
+        writer.writerow(user)
+    return
+
+def find_article_by_title(title: str) -> list:
     with open("blogging_app/all_articles.csv", "r") as all_articles:
         reader = csv.reader(all_articles)
         next(reader)
@@ -31,7 +37,7 @@ def find_article_by_title(title):
             if title == article[0]:
                 return article
             
-def all_articles_cache():
+def all_articles_cache() -> list:
     with open("blogging_app/all_articles.csv", "r") as all_articles:
         reader = csv.reader(all_articles)
         next(reader)
