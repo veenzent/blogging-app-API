@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Form, HTTPException
-from typing import Annotated
+from typing import Annotated, Optional
 from uuid import UUID
 from blogging_app.models import User, UserProfile, Articles, UpdateArticle, UpdateArticleResponse
 import csv
 import datetime
-from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, username_in_DB, add_user_to_DB
+from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header
 
 
 home_routes = APIRouter()
@@ -52,7 +52,7 @@ async def create_blog(
         for user in reader:
             if username == user[1]:
                 author = f"{user[2]} {user[3]}"
-                article = Articles(title=title, author=author, content=content, date_published=str(datetime.datetime.now()))
+                article = Articles(title=title, author=author, content=content, date_published=str(datetime.datetime.today().strftime("%d-%m-%Y")))
                 add_article_to_DB(article)
                 return article
     raise HTTPException(status_code=404, detail="User not found, Sign up to write an article!")
@@ -67,14 +67,33 @@ async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
 
         with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
             writer = csv.writer(all_articles)
+            writer.writerow(article_header)
             for i, article in enumerate(caches):
                 if title == article[0]:
                     update = [updated_article.title, caches[i][1], updated_article.content, caches[i][3]]
                     writer.writerow(update)
                 else:
                     writer.writerow(article)
-        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.now())
+        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.today().strftime("%d-%m-%Y"))
     raise HTTPException(status_code=404, detail="Title not found!")
+
+
+# - - - - - D E L E T E - A R T I C L E - - - -
+@home_routes.delete("/dashboaard/{username}/{title}/delete-blog")
+async def delete_blog(username: str, title: str):
+    user = username_in_DB(username)
+    if user:
+        caches = all_articles_cache()
+        with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
+            writer = csv.writer(all_articles)
+            writer.writerow(article_header)
+            for i, article in enumerate(caches):
+                if title == article[0]:
+                    continue
+                else:
+                    writer.writerow(article)
+        return {"message": "Article deleted!"}
+    raise HTTPException(status_code=404, detail=f"No blog with title: {title}!")
 
 
 # - - - - - S I G N - U P - - - - -
@@ -96,9 +115,10 @@ async def sign_up(
 
         # new user details
         row = [new_user.id, new_user.username, new_user.first_name, new_user.last_name, new_user.email, new_user.password]
+        # print(row)
 
         # add new user to database
-        add_user_to_DB(new_user)
+        add_user_to_DB(row)
     return {"message": "Sign-up successful!"}
 
 
@@ -117,8 +137,65 @@ async def sign_in(
         raise HTTPException(status_code=401, detail="Username and/or password incorrect")
 
 
-# - - - - - U P D A T E - P R O F I L E - - - - -
-@home_routes.put("/dashboard/{username}/update-profile", response_model=UserProfile)
-async def update_profile(username: str, profile: UserProfile):
+# - - - - - D E L E T E - A C C O U N T - - - - -
+@home_routes.delete("/delete-account")
+async def delete_account(username: str):
+    if username_in_DB(username):
+        users = all_users_cache()
+        with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
+            writer = csv.writer(UsersDB)
+            writer.writerow(UsersDB_header)
+            for user in users:
+                if user[1] == username:
+                    continue
+                else:
+                    writer.writerow(user)
+        return {"message": "Account deleted successfully!"}
+    raise HTTPException(status_code=404, detail="User not found!")
 
-    return {"message": "Profile updated successfully!"}
+
+# - - - - - U P D A T E - P R O F I L E - - - - -
+# @home_routes.put("/dashboard/{username}/update-profile", response_model=UserProfile)
+# async def update_profile(
+#     username: str,
+#     bio: Optional[Annotated[str | None, Form(default="Write something about yourself!")]],
+#     website: Optional[Annotated[str, Form()]],
+#     twitter: Optional[Annotated[str, Form()]],
+#     facebook: Optional[Annotated[str, Form()]],
+#     instagram: Optional[Annotated[str, Form()]]
+# ):
+#     user = username_in_DB(username)
+#     if user:
+#         signup_data = get_user_signup_details(username)
+#         author = f"{signup_data[2]} {signup_data[3]}"
+#         articles = get_articles_by_author(author)
+#         profile_update = UserProfile(
+#             id=signup_data[0],
+#             username=signup_data[1],
+#             first_name=signup_data[2],
+#             last_name=signup_data[3],
+#             email=signup_data[4],
+#             password=signup_data[5],            
+#             bio=bio,
+#             website=website,
+#             twitter=twitter,
+#             facebook=facebook,
+#             instagram=instagram,
+#             last_updated_at=str(datetime.datetime.today().strftime("%d-%m-%Y")),
+#             posts=[article for article in articles],
+#             posts_count=len(articles)
+#         )
+#     with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
+#         writer = csv.writer(UsersDB)
+#         all_users = all_users_cache()
+#         update = [
+#             profile_update.id, profile_update.username, profile_update.first_name, profile_update.last_name, profile_update.email, profile_update.password, profile_update.bio, profile_update.website, profile_update.twitter, profile_update.facebook, profile_update.instagram, profile_update.last_updated_at, profile_update.posts, profile_update.posts_count
+#         ]
+#         print(update)
+#         # for user in all_users:
+#         #     if signup_data[0] == user[0][0]:
+#         #         writer.writerow(update)
+#         #     else:
+#         #         writer.writerow(user)
+
+#     return profile_update
