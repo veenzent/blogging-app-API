@@ -4,7 +4,7 @@ from uuid import UUID
 from blogging_app.models import User, UserProfile, Articles, UpdateArticle, UpdateArticleResponse
 import csv
 import datetime
-from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header
+from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title
 
 
 home_routes = APIRouter()
@@ -81,19 +81,21 @@ async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
 # - - - - - D E L E T E - A R T I C L E - - - -
 @home_routes.delete("/dashboaard/{username}/{title}/delete-blog")
 async def delete_blog(username: str, title: str):
-    user = username_in_DB(username)
-    if user:
-        caches = all_articles_cache()
-        with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
-            writer = csv.writer(all_articles)
-            writer.writerow(article_header)
-            for i, article in enumerate(caches):
-                if title == article[0]:
-                    continue
-                else:
-                    writer.writerow(article)
-        return {"message": "Article deleted!"}
-    raise HTTPException(status_code=404, detail=f"No blog with title: {title}!")
+    if username_in_DB(username):
+        blog = find_article_by_title(title)
+        if blog:
+            caches = all_articles_cache()
+            with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
+                writer = csv.writer(all_articles)
+                writer.writerow(article_header)
+                for article in caches:
+                    if blog == article:
+                        continue
+                    else:
+                        writer.writerow(article)
+            return {"message": "Article deleted!"}
+        raise HTTPException(status_code=404, detail=f"No blog with title: {title}!")
+    raise HTTPException(status_code=404, detail="User not found!")
 
 
 # - - - - - S I G N - U P - - - - -
