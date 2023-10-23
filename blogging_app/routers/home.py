@@ -16,11 +16,101 @@ async def home():
 
 @home_routes.get("/about")
 async def about():
-    return {"message": "About Page coming soon!"}
+    return {"message": "About Us!"}
 
 @home_routes.get("/contacts")
 async def contacts():
-    return {"message": "Contacts Page coming soon!"}
+    return {"message": "Contacts Us!"}
+
+
+# - - - - - S I G N - U P - - - - -
+@home_routes.post("/sign-up")
+async def sign_up(
+  username: Annotated[str, Form(max_length=100)],
+  first_name: Annotated[str, Form(max_length=100)],
+  last_name: Annotated[str, Form(max_length=100)],
+  email: Annotated[str, Form(max_length=100)],
+  password: Annotated[str, Form(max_length=100)],
+  confirm_password: Annotated[str, Form(max_length=100)]
+):
+    if username_in_DB(username):
+        raise HTTPException(status_code=400, detail="Username already exists!")
+    if confirm_password == password:
+        total_users = get_total_users()
+        id = str(UUID(int=total_users + 1))
+        new_user = User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=password)
+
+        # new user details
+        row = [new_user.id, new_user.username, new_user.first_name, new_user.last_name, new_user.email, new_user.password]
+        # print(row)
+
+        # add new user to database
+        add_user_to_DB(row)
+    return {"message": "Sign-up successful!"}
+
+
+# - - - - - L O G I N / S I G N - I N- - - - - -
+@home_routes.post("/sign-in")
+async def sign_in(
+  username: Annotated[str, Form(max_length=100)],
+  password: Annotated[str, Form(max_length=100)]
+):
+    with open("blogging_app/UsersDB.csv", "r") as UsersDB:
+        reader = csv.reader(UsersDB)
+        next(reader)
+        for user in reader:
+            if username == user[1] and password == user[5]:
+                return {"message": f"Welcome back {user[2]}!"}
+        raise HTTPException(status_code=401, detail="Username and/or password incorrect")
+
+
+# - - - - - U P D A T E - P R O F I L E - - - - -
+@home_routes.put("/dashboard/{username}/update-profile", response_model=UserProfile)
+async def update_profile(
+    username: str,
+    bio: Optional[Annotated[str | None, Form(default="Write something about yourself!")]],
+    website: Optional[Annotated[str, Form()]],
+    twitter: Optional[Annotated[str, Form()]],
+    facebook: Optional[Annotated[str, Form()]],
+    instagram: Optional[Annotated[str, Form()]]
+):
+    if username_in_DB(username):
+        signup_data = get_user_signup_details(username)
+        author = f"{signup_data[2]} {signup_data[3]}"
+        articles = get_articles_by_author(author)
+        profile_update = UserProfile(
+            id=signup_data[0],
+            username=signup_data[1],
+            first_name=signup_data[2],
+            last_name=signup_data[3],
+            email=signup_data[4],
+            password=signup_data[5],            
+            bio=bio,
+            website=website,
+            twitter=twitter,
+            facebook=facebook,
+            instagram=instagram,
+            last_updated_at=str(datetime.datetime.today().strftime("%d-%m-%Y")),
+            posts=[article for article in articles],
+            posts_count=len(articles)
+        )
+
+        update = [
+            profile_update.id, profile_update.username, profile_update.first_name, profile_update.last_name, profile_update.email, profile_update.password, profile_update.bio, profile_update.website, profile_update.twitter, profile_update.facebook, profile_update.instagram, profile_update.last_updated_at, profile_update.posts, profile_update.posts_count
+        ]
+        all_users = all_users_cache()
+        with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
+            writer = csv.writer(UsersDB)
+            writer.writerow(UsersDB_header)
+            for user in all_users:
+                if signup_data[0] == user[0]:
+                    print(update)
+                    writer.writerow(update)
+                else:
+                    print("No Update Yet")
+                    writer.writerow(user)
+        return profile_update
+    raise HTTPException(status_code=404, detail="User not found!")
 
 
 # - - - - - T R E N D I N G - A R T I C L E S - - - - -
@@ -98,47 +188,6 @@ async def delete_blog(username: str, title: str):
     raise HTTPException(status_code=404, detail="User not found!")
 
 
-# - - - - - S I G N - U P - - - - -
-@home_routes.post("/sign-up")
-async def sign_up(
-  username: Annotated[str, Form(max_length=100)],
-  first_name: Annotated[str, Form(max_length=100)],
-  last_name: Annotated[str, Form(max_length=100)],
-  email: Annotated[str, Form(max_length=100)],
-  password: Annotated[str, Form(max_length=100)],
-  confirm_password: Annotated[str, Form(max_length=100)]
-):
-    if username_in_DB(username):
-        raise HTTPException(status_code=400, detail="Username already exists!")
-    if confirm_password == password:
-        total_users = get_total_users()
-        id = str(UUID(int=total_users + 1))
-        new_user = User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=password)
-
-        # new user details
-        row = [new_user.id, new_user.username, new_user.first_name, new_user.last_name, new_user.email, new_user.password]
-        # print(row)
-
-        # add new user to database
-        add_user_to_DB(row)
-    return {"message": "Sign-up successful!"}
-
-
-# - - - - - L O G I N / S I G N - I N- - - - - -
-@home_routes.post("/sign-in")
-async def sign_in(
-  username: Annotated[str, Form(max_length=100)],
-  password: Annotated[str, Form(max_length=100)]
-):
-    with open("blogging_app/UsersDB.csv", "r") as UsersDB:
-        reader = csv.reader(UsersDB)
-        next(reader)
-        for user in reader:
-            if username == user[1] and password == user[5]:
-                return {"message": f"Welcome back {user[2]}!"}
-        raise HTTPException(status_code=401, detail="Username and/or password incorrect")
-
-
 # - - - - - D E L E T E - A C C O U N T - - - - -
 @home_routes.delete("/delete-account")
 async def delete_account(username: str):
@@ -154,50 +203,3 @@ async def delete_account(username: str):
                     writer.writerow(user)
         return {"message": "Account deleted successfully!"}
     raise HTTPException(status_code=404, detail="User not found!")
-
-
-# - - - - - U P D A T E - P R O F I L E - - - - -
-# @home_routes.put("/dashboard/{username}/update-profile", response_model=UserProfile)
-# async def update_profile(
-#     username: str,
-#     bio: Optional[Annotated[str | None, Form(default="Write something about yourself!")]],
-#     website: Optional[Annotated[str, Form()]],
-#     twitter: Optional[Annotated[str, Form()]],
-#     facebook: Optional[Annotated[str, Form()]],
-#     instagram: Optional[Annotated[str, Form()]]
-# ):
-#     user = username_in_DB(username)
-#     if user:
-#         signup_data = get_user_signup_details(username)
-#         author = f"{signup_data[2]} {signup_data[3]}"
-#         articles = get_articles_by_author(author)
-#         profile_update = UserProfile(
-#             id=signup_data[0],
-#             username=signup_data[1],
-#             first_name=signup_data[2],
-#             last_name=signup_data[3],
-#             email=signup_data[4],
-#             password=signup_data[5],            
-#             bio=bio,
-#             website=website,
-#             twitter=twitter,
-#             facebook=facebook,
-#             instagram=instagram,
-#             last_updated_at=str(datetime.datetime.today().strftime("%d-%m-%Y")),
-#             posts=[article for article in articles],
-#             posts_count=len(articles)
-#         )
-#     with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
-#         writer = csv.writer(UsersDB)
-#         all_users = all_users_cache()
-#         update = [
-#             profile_update.id, profile_update.username, profile_update.first_name, profile_update.last_name, profile_update.email, profile_update.password, profile_update.bio, profile_update.website, profile_update.twitter, profile_update.facebook, profile_update.instagram, profile_update.last_updated_at, profile_update.posts, profile_update.posts_count
-#         ]
-#         print(update)
-#         # for user in all_users:
-#         #     if signup_data[0] == user[0][0]:
-#         #         writer.writerow(update)
-#         #     else:
-#         #         writer.writerow(user)
-
-#     return profile_update
