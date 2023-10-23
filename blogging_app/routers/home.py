@@ -134,7 +134,7 @@ async def sign_in(
         reader = csv.reader(UsersDB)
         next(reader)
         for user in reader:
-            if username == user[1] and password == user[-1]:
+            if username == user[1] and password == user[5]:
                 return {"message": f"Welcome back {user[2]}!"}
         raise HTTPException(status_code=401, detail="Username and/or password incorrect")
 

@@ -27,7 +27,7 @@ class UpdateArticleResponse(BaseModel):
     author: str
     content: str
     date_published: str
-    last_updated: datetime.datetime
+    last_updated: str
 
 class SocialMediaLinks(BaseModel):
     twitter: str | None = " "
