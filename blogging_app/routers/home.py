@@ -12,20 +12,43 @@ home_routes = APIRouter()
 
 @home_routes.get("/index")
 async def home():
+    """
+    GET request to "/index" endpoint.
+
+    Response:
+        dict: A dictionary containing a message about the contents available on the website.
+    """
     return {"message": "Curiosity births Innovations. Discover articles, thoughts, and professionals from authors on any topic"}
 
 @home_routes.get("/about")
 async def about():
+    """
+    Retrieves information about the about page.
+
+    :return: A dictionary containing the message "About Us!"
+    """
     return {"message": "About Us!"}
 
 @home_routes.get("/contacts")
 async def contacts():
+    """
+    Gets the contacts page information.
+
+    Response:
+        dict: A dictionary containing the message "Contacts Us!".
+    """
     return {"message": "Contacts Us!"}
 
 
 # - - - - - T R E N D I N G - A R T I C L E S - - - - -
 @home_routes.get("/get-blogs")
 async def get_blogs():
+    """
+    Retrieves the latest blogs from the all_articles.csv file.
+
+    Returns:
+    dict: A dictionary containing the latest blogs, where the keys are the blog titles and the values are the corresponding blog articles.
+    """
     with open("blogging_app/all_articles.csv", "r") as all_articles:
         reader = csv.reader(all_articles)
         next(reader)
@@ -47,6 +70,23 @@ async def sign_up(
   password: Annotated[str, Form(max_length=100)],
   confirm_password: Annotated[str, Form(max_length=100)]
 ):
+    """
+    Handle the sign-up request.
+
+    Parameters:
+        - username (str): The username of the new user.
+        - first_name (str): The first name of the new user.
+        - last_name (str): The last name of the new user.
+        - email (str): The email of the new user.
+        - password (str): The password of the new user.
+        - confirm_password (str): The confirmation password for the new user.
+    
+    Returns:
+        dict: A dictionary containing the success message if the sign-up is successful.
+    
+    Raises:
+        HTTPException: If the username already exists in the database.
+    """
     if username_in_DB(username):
         raise HTTPException(status_code=400, detail="Username already exists!")
     if confirm_password == password:
@@ -69,6 +109,19 @@ async def sign_in(
   username: Annotated[str, Form(max_length=100)],
   password: Annotated[str, Form(max_length=100)]
 ):
+    """
+    Signs in a user with their provided username and password.
+
+    Parameters:
+    - username (str): The username of the user.
+    - password (str): The password of the user.
+
+    Returns:
+    - dict: A dictionary with a message if the sign-in was successful, otherwise raise an HTTPException.
+
+    Raises:
+    - HTTPException: If the provided username and/or password is incorrect.
+    """
     with open("blogging_app/UsersDB.csv", "r") as UsersDB:
         reader = csv.reader(UsersDB)
         next(reader)
@@ -88,6 +141,23 @@ async def update_profile(
     facebook: Optional[Annotated[str, Form()]],
     instagram: Optional[Annotated[str, Form()]]
 ):
+    """
+    Update the profile of a user.
+
+    Args:
+        username (str): The username of the user.
+        bio (Optional[str]): The user's biography. Defaults to "Write something about yourself!".
+        website (Optional[str]): The user's website.
+        twitter (Optional[str]): The user's Twitter handle.
+        facebook (Optional[str]): The user's Facebook profile.
+        instagram (Optional[str]): The user's Instagram handle.
+
+    Returns:
+        UserProfile: The updated user profile.
+
+    Raises:
+        HTTPException: If the user is not found.
+    """
     if username_in_DB(username):
         signup_data = get_user_signup_details(username)
         author = f"{signup_data[2]} {signup_data[3]}"
@@ -125,6 +195,20 @@ async def create_blog(
     title: Annotated[str, Form()],
     content: Annotated[str, Form(...)]
 ):
+    """
+    Creates a new blog post.
+
+    Parameters:
+        username (str): The username of the author. Max length: 100 characters.
+        title (str): The title of the blog post.
+        content (str): The content of the blog post.
+
+    Returns:
+        BlogPost: The newly created blog post.
+
+    Raises:
+        HTTPException: If the user is not found in the database.
+    """
     # get author
     author = ""
     with open("blogging_app/UsersDB.csv", "r") as UsersDB:
@@ -142,6 +226,36 @@ async def create_blog(
 # - - - - - E D I T - A R T I C L E - - - - -
 @home_routes.put("/dashboaard/{username}/{title}/edit-blog", response_model=UpdateArticleResponse)
 async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
+    """
+    Edit a blog article by title.
+
+    Parameters:
+    - `username` (str): The username of the author of the article.
+    - `title` (str): The title of the article to be edited.
+    - `updated_article` (UpdateArticle): The updated article object.
+
+    Returns:
+    - `UpdateArticleResponse`: The response object containing the updated article details.
+
+    Raises:
+    - `HTTPException`: If the specified title is not found.
+
+    Description:
+    This function edits a blog article by updating the specified article's title,
+    content, and date published. It first checks if the specified username exists
+    in the database. If found, it retrieves all articles from the cache and writes
+    them to the articlesDB(csv) file. The function then iterates through the
+    articles and updates the specified article with the new title, content, and
+    date published. Finally, it returns the updated article details in the
+    `UpdateArticleResponse` object. If the specified title is not found, it raises
+    an HTTPException with a status code of 404.
+
+    Note:
+    - The function assumes that the article cache is stored in memory as `caches`.
+    - The article details are written to the "all_articles.csv" file.
+    - The `UpdateArticle` object contains the updated article's title, content,
+      and date published.
+    """
     user = username_in_DB(username)
     if user:
         caches = all_articles_cache()
@@ -162,6 +276,20 @@ async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
 # - - - - - M Y - B L O G S - - - - -
 @home_routes.get("/dashboaard/{username}/my-blogs")
 async def my_blogs(username: str):
+    """
+    Retrieves the blogs created by the specified user.
+
+    Parameters:
+        username (str): The username of the user whose blogs are being retrieved.
+
+    Returns:
+        dict: A dictionary containing the user's blogs, if any exist.
+
+    Raises:
+        HTTPException: If the specified user does not exist or has no blogs.
+            - status_code: The HTTP status code indicating the error.
+            - detail: A description of the error.
+    """
     if username_in_DB(username):
         # author = ""
         with open("blogging_app/UsersDB.csv", "r") as UsersDB:
@@ -173,13 +301,26 @@ async def my_blogs(username: str):
         articles = get_articles_by_author(author)
         if articles:
             return {"my blogs": articles}
-        raise HTTPException(status_code=204, detail="No content yet!")
+        return {"my blogs": [], "message": "You have not created any blogs yet!"}
     raise HTTPException(status_code=404, detail="User not found!")
 
 
 # - - - - - D E L E T E - A R T I C L E - - - -
 @home_routes.delete("/dashboaard/{username}/{title}/delete-blog")
 async def delete_blog(username: str, title: str):
+    """
+    Delete a blog article from the user's dashboard.
+
+    Parameters:
+        username (str): The username of the user.
+        title (str): The title of the blog article to be deleted.
+
+    Returns:
+        dict: A dictionary containing a message indicating that the article has been deleted.
+
+    Raises:
+        HTTPException: If the user or the blog article is not found.
+    """
     if username_in_DB(username):
         blog = find_article_by_title(title)
         if blog:
@@ -200,6 +341,18 @@ async def delete_blog(username: str, title: str):
 # - - - - - D E L E T E - A C C O U N T - - - - -
 @home_routes.delete("/delete-account")
 async def delete_account(username: str):
+    """
+    Deletes the user account with the specified username.
+
+    Parameters:
+        username (str): The username of the account to be deleted.
+
+    Returns:
+        dict: A dictionary with a message indicating the success of the deletion.
+
+    Raises:
+        HTTPException: If the specified username is not found in the database.
+    """
     if username_in_DB(username):
         users = all_users_cache()
         with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
