@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from blogging_app.routers.home import home_routes
 
 app = FastAPI(title="Blog APP", description="Curiosity births Innovations. Discover articles, thoughts, and professionals from authors on any topic")
