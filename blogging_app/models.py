@@ -1,6 +1,6 @@
+from fastapi import Form
 from pydantic import BaseModel
-from typing import List, Optional
-import datetime
+from typing import List, Optional, Annotated
 
 
 # User Sign-in
@@ -35,7 +35,7 @@ class SocialMediaLinks(BaseModel):
     instagram: str | None = " "
 
 class UserProfile(User, SocialMediaLinks):
-    bio: Optional[str | None] = "Write something about yourself!"
+    bio: Optional[Annotated[str, None, Form(default="Write something about yourself!")]]
     website: str | None = " "
     last_updated_at: str
     posts: List[Articles]

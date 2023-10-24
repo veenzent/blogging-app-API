@@ -65,7 +65,7 @@ def all_users_cache() -> list:
         users = list(reader)
         return users
     
-def get_articles_by_author(author: str) -> list:
+def get_articles_by_author(author: str) -> list[dict[str, any]]:
     with open("blogging_app/all_articles.csv", "r") as all_articles:
         reader = csv.reader(all_articles)
         next(reader)
@@ -73,8 +73,18 @@ def get_articles_by_author(author: str) -> list:
         for article in reader:
             if author == article[1]:
                 article = Articles(title=article[0], author=article[1], content=article[2], date_published=article[3])
+                article =article.__dict__
                 articles.append(article)
     return articles
 
-# all_users = all_users_cache()
-# print(all_users_cache())
+def update_user_profile(signup_data: list, update: list):
+    all_users = all_users_cache()
+    with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
+        writer = csv.writer(UsersDB)
+        writer.writerow(UsersDB_header)
+        for user in all_users:
+            if signup_data[0] == user[0]:
+                writer.writerow(update)
+            else:
+                writer.writerow(user)
+    return

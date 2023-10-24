@@ -4,7 +4,7 @@ from uuid import UUID
 from blogging_app.models import User, UserProfile, Articles, UpdateArticle, UpdateArticleResponse
 import csv
 import datetime
-from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title
+from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile
 
 
 home_routes = APIRouter()
@@ -21,6 +21,20 @@ async def about():
 @home_routes.get("/contacts")
 async def contacts():
     return {"message": "Contacts Us!"}
+
+
+# - - - - - T R E N D I N G - A R T I C L E S - - - - -
+@home_routes.get("/get-blogs")
+async def get_blogs():
+    with open("blogging_app/all_articles.csv", "r") as all_articles:
+        reader = csv.reader(all_articles)
+        next(reader)
+        trending = []
+        for i, article in enumerate(reader):
+            if i <= 4:
+                article = Articles(title=article[0], author=article[1], content=article[2], date_published=article[3])
+                trending.append(article)
+    return{"Latest Blogs": trending}
 
 
 # - - - - - S I G N - U P - - - - -
@@ -98,36 +112,13 @@ async def update_profile(
         update = [
             profile_update.id, profile_update.username, profile_update.first_name, profile_update.last_name, profile_update.email, profile_update.password, profile_update.bio, profile_update.website, profile_update.twitter, profile_update.facebook, profile_update.instagram, profile_update.last_updated_at, profile_update.posts, profile_update.posts_count
         ]
-        all_users = all_users_cache()
-        with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
-            writer = csv.writer(UsersDB)
-            writer.writerow(UsersDB_header)
-            for user in all_users:
-                if signup_data[0] == user[0]:
-                    print(update)
-                    writer.writerow(update)
-                else:
-                    print("No Update Yet")
-                    writer.writerow(user)
+        update[12] = articles
+        update_user_profile(signup_data, update)
         return profile_update
     raise HTTPException(status_code=404, detail="User not found!")
 
 
-# - - - - - T R E N D I N G - A R T I C L E S - - - - -
-@home_routes.get("/get-blogs")
-async def get_blogs():
-    with open("blogging_app/all_articles.csv", "r") as all_articles:
-        reader = csv.reader(all_articles)
-        next(reader)
-        trending = []
-        for i, article in enumerate(reader):
-            if i <= 4:
-                article = Articles(title=article[0], author=article[1], content=article[2], date_published=article[3])
-                trending.append(article)
-    return{"Trending Articles": trending}
-
-
-# - - - - - W R I T E - A R T I C L E - - - - -
+# - - - - - C R E A T E - B L O G - - - - -
 @home_routes.post("/create-blog", response_model=Articles)
 async def create_blog(
     username: Annotated[str, Form(max_length=100)],
@@ -145,7 +136,7 @@ async def create_blog(
                 article = Articles(title=title, author=author, content=content, date_published=str(datetime.datetime.today().strftime("%d-%m-%Y")))
                 add_article_to_DB(article)
                 return article
-    raise HTTPException(status_code=404, detail="User not found, Sign up to write an article!")
+    raise HTTPException(status_code=404, detail="User not found, Sign up to start writing blogs!")
 
 
 # - - - - - E D I T - A R T I C L E - - - - -
@@ -166,6 +157,24 @@ async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
                     writer.writerow(article)
         return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.today().strftime("%d-%m-%Y"))
     raise HTTPException(status_code=404, detail="Title not found!")
+
+
+# - - - - - M Y - B L O G S - - - - -
+@home_routes.get("/dashboaard/{username}/my-blogs")
+async def my_blogs(username: str):
+    if username_in_DB(username):
+        # author = ""
+        with open("blogging_app/UsersDB.csv", "r") as UsersDB:
+            reader = csv.reader(UsersDB)
+            next(reader)
+            for user in reader:
+                if username == user[1]:
+                    author = f"{user[2]} {user[3]}"
+        articles = get_articles_by_author(author)
+        if articles:
+            return {"my blogs": articles}
+        raise HTTPException(status_code=204, detail="No content yet!")
+    raise HTTPException(status_code=404, detail="User not found!")
 
 
 # - - - - - D E L E T E - A R T I C L E - - - -
