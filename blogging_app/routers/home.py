@@ -52,6 +52,7 @@ async def get_blogs():
     with open("blogging_app/all_articles.csv", "r") as all_articles:
         reader = csv.reader(all_articles)
         next(reader)
+        reader = sorted(reader, key=lambda x: x[3], reverse=True)
         trending = []
         for i, article in enumerate(reader):
             if i <= 4:
@@ -178,7 +179,7 @@ async def update_profile(
             twitter=twitter,
             facebook=facebook,
             instagram=instagram,
-            last_updated_at=str(datetime.datetime.today().strftime("%d-%m-%Y")),
+            last_updated_at=str(datetime.datetime.today().strftime("%d-%B-%Y %H:%M:%S")),
             posts=[article for article in articles],
             posts_count=len(articles)
         )
@@ -221,7 +222,7 @@ async def create_blog(
         for user in reader:
             if username == user[1]:
                 author = f"{user[2]} {user[3]}"
-                article = Articles(title=title, author=author, content=content, date_published=str(datetime.datetime.today().strftime("%d-%m-%Y")))
+                article = Articles(title=title, author=author, content=content, date_published=str(datetime.datetime.today().strftime("%d-%B-%Y %H:%M:%S")))
                 add_article_to_DB(article)
                 return article
     raise HTTPException(status_code=404, detail="User not found, Sign up to start writing blogs!")
@@ -273,7 +274,7 @@ async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
                     writer.writerow(update)
                 else:
                     writer.writerow(article)
-        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.today().strftime("%d-%m-%Y"))
+        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.today().strftime("%d-%B-%Y %H:%M:%S"))
     raise HTTPException(status_code=404, detail="Title not found!")
 
 
