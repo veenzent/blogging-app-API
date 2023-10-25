@@ -41,6 +41,15 @@ def username_in_DB(username: str) -> bool:
                 return True
     return False
 
+def email_in_DB(email: str) -> bool:
+    with open("blogging_app/UsersDB.csv", "r") as UsersDB:
+        reader = csv.reader(UsersDB)
+        next(reader)
+        for user in reader:
+            if email == user[4]:
+                return True
+    return False
+
 def get_user_signup_details(username: str) -> list:
     """
     Retrieves the signup details of a user based on their username.

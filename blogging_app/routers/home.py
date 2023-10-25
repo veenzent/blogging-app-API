@@ -4,7 +4,7 @@ from uuid import UUID
 from blogging_app.models import User, UserProfile, Articles, UpdateArticle, UpdateArticleResponse
 import csv
 import datetime
-from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile
+from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile, email_in_DB
 
 
 home_routes = APIRouter()
@@ -89,7 +89,11 @@ async def sign_up(
     """
     if username_in_DB(username):
         raise HTTPException(status_code=400, detail="Username already exists!")
-    if confirm_password == password:
+    if email_in_DB(email):
+        raise HTTPException(status_code=400, detail="Email already exists!")
+    if confirm_password != password:
+        raise HTTPException(status_code=400, detail="Passwords do not match!")
+    else:
         total_users = get_total_users()
         id = str(UUID(int=total_users + 1))
         new_user = User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=password)
