@@ -3,6 +3,19 @@ from pydantic import BaseModel
 from typing import List, Optional, Annotated
 
 
+from decouple import Config
+
+
+
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: str
+
 # User Sign-in
 class User(BaseModel):
     id: str
@@ -40,3 +53,19 @@ class UserProfile(User, SocialMediaLinks):
     last_updated_at: str
     posts: List[Articles]
     posts_count: int
+
+class UserProfileResponse(BaseModel):
+    id: str
+    username: str
+    first_name: str
+    last_name: str
+    email: str
+    password: str
+    bio: Optional[Annotated[str, None, Form(default="Write something about yourself!")]]
+    website: str | None = " "
+    twitter: str | None = " "
+    facebook: str | None = " "
+    instagram: str | None = " "
+    last_updated_at: str
+    posts: List[Articles]
+    posts_count: int = 0

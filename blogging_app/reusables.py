@@ -1,5 +1,6 @@
 import csv
-from blogging_app.models import Articles
+from .models import Articles
+from blogging_app.auth import auth_handler
 
 
 UsersDB_header = ["id", "username", "first_name", "last_name", "email", "password", "bio", "website", "social_media.twitter", "social_media.facebook", "social_media.instagam", "last_updated_at", "posts", "total_posts"]
@@ -38,8 +39,19 @@ def username_in_DB(username: str) -> bool:
         next(reader)
         for user in reader:
             if username == user[1]:
+                print(user[1])
                 return True
     return False
+
+def authenticate_user(username: str, password: str):
+    hashed_password = auth_handler.get_password_hash(password)
+    with open("blogging_app/UsersDB.csv", "r") as UsersDB:
+        reader = csv.reader(UsersDB)
+        next(reader)
+        for user in reader:
+            if username == user[1] and auth_handler.verify_password(password, hashed_password):
+                return user
+        return None
 
 def email_in_DB(email: str) -> bool:
     with open("blogging_app/UsersDB.csv", "r") as UsersDB:

@@ -1,1 +1,3 @@
 __pycache__
+.env
+./blogging_app/__pycache__

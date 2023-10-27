@@ -1,13 +1,16 @@
-from fastapi import APIRouter, Form, HTTPException
+from fastapi import APIRouter, Form, HTTPException, Depends, status
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import Annotated, Optional
 from uuid import UUID
-from blogging_app.models import User, UserProfile, Articles, UpdateArticle, UpdateArticleResponse
+from blogging_app import models
 import csv
-import datetime
-from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile, email_in_DB
+from datetime import datetime, timedelta
+from blogging_app.auth import auth_handler
+from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile, email_in_DB, authenticate_user
 
 
 home_routes = APIRouter()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/sign-in")
 
 
 @home_routes.get("/index")
@@ -56,7 +59,7 @@ async def get_blogs():
         trending = []
         for i, article in enumerate(reader):
             if i <= 4:
-                article = Articles(title=article[0], author=article[1], content=article[2], date_published=article[3])
+                article = models.Articles(title=article[0], author=article[1], content=article[2], date_published=article[3])
                 trending.append(article)
     return{"Latest Blogs": trending}
 
@@ -97,7 +100,7 @@ async def sign_up(
     else:
         total_users = get_total_users()
         id = str(UUID(int=total_users + 1))
-        new_user = User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=password)
+        new_user = models.User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=auth_handler.get_password_hash(password))
 
         # new user details
         row = [new_user.id, new_user.username, new_user.first_name, new_user.last_name, new_user.email, new_user.password]
@@ -105,15 +108,12 @@ async def sign_up(
 
         # add new user to database
         add_user_to_DB(row)
-    return {"message": "Sign-up successful!"}
+    return {"message": "Sign-up successful!, proceed to sign-up."}
 
 
 # - - - - - L O G I N / S I G N - I N- - - - - -
-@home_routes.post("/sign-in")
-async def sign_in(
-  username: Annotated[str, Form(max_length=100)],
-  password: Annotated[str, Form(max_length=100)]
-):
+@home_routes.post("/sign-in", response_model=models.Token)
+async def sign_in(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     """
     Signs in a user with their provided username and password.
 
@@ -127,19 +127,21 @@ async def sign_in(
     Raises:
     - HTTPException: If the provided username and/or password is incorrect.
     """
-    with open("blogging_app/UsersDB.csv", "r") as UsersDB:
-        reader = csv.reader(UsersDB)
-        next(reader)
-        for user in reader:
-            if username == user[1] and password == user[5]:
-                return {"message": f"Welcome back {user[2]}!"}
-        raise HTTPException(status_code=401, detail="Username and/or password incorrect")
+    credential_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
+
+    user =  authenticate_user(form_data.username, form_data.password)
+    if user:
+        access_token_expires = timedelta(minutes=auth_handler.ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = auth_handler.create_access_token(data={"sub": user[1]}, expires_delta=access_token_expires)
+    else:
+        raise credential_exception
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 # - - - - - U P D A T E - P R O F I L E - - - - -
-@home_routes.put("/dashboard/{username}/update-profile", response_model=UserProfile)
+@home_routes.put("/dashboard/{username}/update-profile", response_model=models.UserProfile)
 async def update_profile(
-    username: str,
+    username: Annotated[str, Depends(auth_handler.authorize_url)],
     bio: Optional[Annotated[str | None, Form(default="Write something about yourself!")]],
     website: Optional[Annotated[str, Form()]],
     twitter: Optional[Annotated[str, Form()]],
@@ -167,7 +169,7 @@ async def update_profile(
         signup_data = get_user_signup_details(username)
         author = f"{signup_data[2]} {signup_data[3]}"
         articles = get_articles_by_author(author)
-        profile_update = UserProfile(
+        profile_update = models.UserProfile(
             id=signup_data[0],
             username=signup_data[1],
             first_name=signup_data[2],
@@ -179,7 +181,7 @@ async def update_profile(
             twitter=twitter,
             facebook=facebook,
             instagram=instagram,
-            last_updated_at=str(datetime.datetime.today().strftime("%d-%B-%Y %H:%M:%S")),
+            last_updated_at=str(datetime.today().strftime("%d-%B-%Y %H:%M:%S")),
             posts=[article for article in articles],
             posts_count=len(articles)
         )
@@ -193,10 +195,21 @@ async def update_profile(
     raise HTTPException(status_code=404, detail="User not found!")
 
 
+# @home_routes.get("/dashboard/profile", response_model=models.UserProfileResponse)
+# async def my_profile(username: Annotated[str, Depends(auth_handler.authorize_url)]):
+#     users = all_users_cache()
+#     for user in users:
+#         if username == user[1]:
+#             profile = models.UserProfileResponse(
+#                 id=user[0], username=user[1], first_name=user[2], last_name=user[3], email=user[4], password=user[5], bio=user[6], website=user[7], twitter=user[8], facebook=user[9], instagram=user[10], last_updated_at=user[11], posts=[models.Articles(**article) for article in user[12]], posts_count=user[13]
+#             )
+#             return profile
+
+
 # - - - - - C R E A T E - B L O G - - - - -
-@home_routes.post("/create-blog", response_model=Articles)
+@home_routes.post("/create-blog", response_model=models.Articles)
 async def create_blog(
-    username: Annotated[str, Form(max_length=100)],
+    username: Annotated[str, Depends(auth_handler.authorize_url)],
     title: Annotated[str, Form()],
     content: Annotated[str, Form(...)]
 ):
@@ -216,21 +229,22 @@ async def create_blog(
     """
     # get author
     author = ""
+    print(username)
     with open("blogging_app/UsersDB.csv", "r") as UsersDB:
         reader = csv.reader(UsersDB)
         next(reader)
         for user in reader:
             if username == user[1]:
                 author = f"{user[2]} {user[3]}"
-                article = Articles(title=title, author=author, content=content, date_published=str(datetime.datetime.today().strftime("%d-%B-%Y %H:%M:%S")))
+                article = models.Articles(title=title, author=author, content=content, date_published=str(datetime.today().strftime("%d-%B-%Y %H:%M:%S")))
                 add_article_to_DB(article)
                 return article
     raise HTTPException(status_code=404, detail="User not found, Sign up to start writing blogs!")
 
 
 # - - - - - E D I T - A R T I C L E - - - - -
-@home_routes.put("/dashboaard/{username}/{title}/edit-blog", response_model=UpdateArticleResponse)
-async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
+@home_routes.put("/dashboaard/{username}/edit-blog", response_model=models.UpdateArticleResponse)
+async def edit_blog(username: Annotated[str, Depends(auth_handler.authorize_url)], title: str, updated_article: models.UpdateArticle):
     """
     Edit a blog article by title.
 
@@ -274,13 +288,13 @@ async def edit_blog(username: str, title: str, updated_article: UpdateArticle):
                     writer.writerow(update)
                 else:
                     writer.writerow(article)
-        return UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.datetime.today().strftime("%d-%B-%Y %H:%M:%S"))
+        return models.UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.today().strftime("%d-%B-%Y %H:%M:%S"))
     raise HTTPException(status_code=404, detail="Title not found!")
 
 
 # - - - - - M Y - B L O G S - - - - -
 @home_routes.get("/dashboaard/{username}/my-blogs")
-async def my_blogs(username: str):
+async def my_blogs(username: Annotated[str, Depends(auth_handler.authorize_url)]):
     """
     Retrieves the blogs created by the specified user.
 
@@ -296,7 +310,6 @@ async def my_blogs(username: str):
             - detail: A description of the error.
     """
     if username_in_DB(username):
-        # author = ""
         with open("blogging_app/UsersDB.csv", "r") as UsersDB:
             reader = csv.reader(UsersDB)
             next(reader)
@@ -312,7 +325,7 @@ async def my_blogs(username: str):
 
 # - - - - - D E L E T E - A R T I C L E - - - -
 @home_routes.delete("/dashboaard/{username}/{title}/delete-blog")
-async def delete_blog(username: str, title: str):
+async def delete_blog(username: Annotated[str, Depends(auth_handler.authorize_url)], title: str):
     """
     Delete a blog article from the user's dashboard.
 
@@ -345,7 +358,7 @@ async def delete_blog(username: str, title: str):
 
 # - - - - - D E L E T E - A C C O U N T - - - - -
 @home_routes.delete("/delete-account")
-async def delete_account(username: str):
+async def delete_account(username: Annotated[str, Depends(auth_handler.authorize_url)]):
     """
     Deletes the user account with the specified username.
 
