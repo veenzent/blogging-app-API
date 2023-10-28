@@ -7,23 +7,6 @@ UsersDB_header = ["id", "username", "first_name", "last_name", "email", "passwor
 
 article_header = ["title", "author", "content", "date_published"]
 
-# get total users in database
-def get_total_users() -> int:
-    """
-    Returns the total number of users in the UsersDB.csv file.
-
-    Parameters:
-    None
-
-    Returns:
-    int: The total number of users in the UsersDB.csv file.
-    """
-    with open("blogging_app/UsersDB.csv", "r") as UsersDB:
-        reader = csv.reader(UsersDB)
-        next(reader)
-        total_users = len(list(reader))
-    return total_users
-
 def username_in_DB(username: str) -> bool:
     """
     Checks if the given username exists in the UsersDB.csv file.

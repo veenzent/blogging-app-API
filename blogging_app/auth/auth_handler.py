@@ -48,5 +48,5 @@ def authorize_url(token: Annotated[str, Depends(oauth2_scheme)]):
         raise credentials_exception
 
 
-pwd = get_password_hash("123456789")
-print(f"jawon:  {pwd}")
+# pwd = get_password_hash("123456789")
+# print(f"jawon:  {pwd}")

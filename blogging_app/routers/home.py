@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Form, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import Annotated, Optional
-from uuid import UUID
+import uuid
 from blogging_app import models
 import csv
+import ast
 from datetime import datetime, timedelta
 from blogging_app.auth import auth_handler
-from blogging_app.reusables import get_total_users, add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile, email_in_DB, authenticate_user
+from blogging_app.reusables import add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile, email_in_DB, authenticate_user
 
 
 home_routes = APIRouter()
@@ -45,7 +46,7 @@ async def contacts():
 
 # - - - - - T R E N D I N G - A R T I C L E S - - - - -
 @home_routes.get("/get-blogs")
-async def get_blogs():
+async def get_latest_blogs():
     """
     Retrieves the latest blogs from the all_articles.csv file.
 
@@ -98,17 +99,16 @@ async def sign_up(
     if confirm_password != password:
         raise HTTPException(status_code=400, detail="Passwords do not match!")
     else:
-        total_users = get_total_users()
-        id = str(UUID(int=total_users + 1))
+        id = str(uuid.uuid4())
         new_user = models.User(id=id, username=username, first_name=first_name, last_name=last_name, email=email, password=auth_handler.get_password_hash(password))
 
         # new user details
-        row = [new_user.id, new_user.username, new_user.first_name, new_user.last_name, new_user.email, new_user.password]
+        row = [new_user.id, new_user.username, new_user.first_name, new_user.last_name, new_user.email, new_user.password, 'Write something about yourself', " ", " ", " ", " ", " ", [], " "]
         # print(row)
 
         # add new user to database
         add_user_to_DB(row)
-    return {"message": "Sign-up successful!, proceed to sign-up."}
+    return {"message": "Sign-up successful!."}
 
 
 # - - - - - L O G I N / S I G N - I N- - - - - -
@@ -195,15 +195,16 @@ async def update_profile(
     raise HTTPException(status_code=404, detail="User not found!")
 
 
-# @home_routes.get("/dashboard/profile", response_model=models.UserProfileResponse)
-# async def my_profile(username: Annotated[str, Depends(auth_handler.authorize_url)]):
-#     users = all_users_cache()
-#     for user in users:
-#         if username == user[1]:
-#             profile = models.UserProfileResponse(
-#                 id=user[0], username=user[1], first_name=user[2], last_name=user[3], email=user[4], password=user[5], bio=user[6], website=user[7], twitter=user[8], facebook=user[9], instagram=user[10], last_updated_at=user[11], posts=[models.Articles(**article) for article in user[12]], posts_count=user[13]
-#             )
-#             return profile
+# - - - - - M Y - P R O F I L E - - - - -
+@home_routes.get("/dashboard/profile", response_model=models.UserProfileResponse)
+async def my_profile(username: Annotated[str, Depends(auth_handler.authorize_url)]):
+    users = all_users_cache()
+    for user in users:
+        if username == user[1]:
+            profile = models.UserProfileResponse(
+                id=user[0], username=user[1], first_name=user[2], last_name=user[3], email=user[4], password=user[5], bio=user[6], website=user[7], twitter=user[8], facebook=user[9], instagram=user[10], last_updated_at=user[11], posts=[models.Articles(**article) for article in ast.literal_eval(user[12])], posts_count= len(ast.literal_eval(user[12]))# user[13]
+            )
+            return profile
 
 
 # - - - - - C R E A T E - B L O G - - - - -

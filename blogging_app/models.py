@@ -68,4 +68,4 @@ class UserProfileResponse(BaseModel):
     instagram: str | None = " "
     last_updated_at: str
     posts: List[Articles]
-    posts_count: int = 0
+    posts_count: int
