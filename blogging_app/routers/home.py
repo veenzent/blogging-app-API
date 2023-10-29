@@ -4,7 +4,6 @@ from typing import Annotated, Optional
 import uuid
 from blogging_app import models
 import csv
-import ast
 from datetime import datetime, timedelta
 from blogging_app.auth import auth_handler
 from blogging_app.reusables import add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile, email_in_DB, authenticate_user
@@ -201,8 +200,10 @@ async def my_profile(username: Annotated[str, Depends(auth_handler.authorize_url
     users = all_users_cache()
     for user in users:
         if username == user[1]:
+            author = f"{user[2]} {user[3]}"
+            articles = get_articles_by_author(author)
             profile = models.UserProfileResponse(
-                id=user[0], username=user[1], first_name=user[2], last_name=user[3], email=user[4], password=user[5], bio=user[6], website=user[7], twitter=user[8], facebook=user[9], instagram=user[10], last_updated_at=user[11], posts=[models.Articles(**article) for article in ast.literal_eval(user[12])], posts_count= len(ast.literal_eval(user[12]))# user[13]
+                id=user[0], username=user[1], first_name=user[2], last_name=user[3], email=user[4], password=user[5], bio=user[6], website=user[7], twitter=user[8], facebook=user[9], instagram=user[10], last_updated_at=user[11], posts=[models.Articles(**article) for article in articles], posts_count= len(articles)
             )
             return profile
 
