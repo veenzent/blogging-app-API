@@ -1,5 +1,5 @@
 import csv
-from .models import Articles
+from .schemas import Articles
 from blogging_app.auth import auth_handler
 
 

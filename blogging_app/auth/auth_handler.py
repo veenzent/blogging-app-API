@@ -1,15 +1,15 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from blogging_app import models
+from blogging_app import schemas
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from typing import Annotated
-from decouple import config
+from instance.config import SECRET_KEY, ALGORITHM
+from sqlalchemy.orm import Session
 
-
-SECRET_KEY = config("secret")
-ALGORITHM = config("algorithm")
+SECRET_KEY = SECRET_KEY
+ALGORITHM = ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -46,7 +46,3 @@ def authorize_url(token: Annotated[str, Depends(oauth2_scheme)]):
         return username
     except JWTError:
         raise credentials_exception
-
-
-# pwd = get_password_hash("123456789")
-# print(f"jawon:  {pwd}")

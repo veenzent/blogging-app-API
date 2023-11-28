@@ -1,3 +1,10 @@
-__pycache__
+/__pycache__
 .env
-./blogging_app/__pycache__
+/blogging_app/all_articles.csv
+/blogging_app/UsersDB.csv
+/blogging_app/__pycache__
+/blogging_app/auth/__pycache__
+/blogging_app/routers/__pycache__
+/venv
+
+meet.txt
