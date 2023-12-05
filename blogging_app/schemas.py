@@ -1,9 +1,7 @@
+from datetime import datetime
 from fastapi import Form
 from pydantic import BaseModel
 from typing import List, Optional, Annotated
-
-
-from decouple import Config
 
 
 
@@ -33,16 +31,15 @@ class Articles(BaseModel):
     date_published: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UpdateArticle(BaseModel):
     title: str
     content: str
 
-class UpdateArticleResponse(BaseModel):
-    title: str
+class UpdateArticleResponse(UpdateArticle):
+    id: int
     author: str
-    content: str
     date_published: str
     last_updated: str
 
@@ -54,15 +51,15 @@ class SocialMediaLinks(BaseModel):
 class UserProfile(User, SocialMediaLinks):
     bio: Optional[Annotated[str, None, Form(default="Write something about yourself!")]]
     website: str | None = " "
-    last_updated_at: str
-    posts: List[Articles]
+    last_updated_at: datetime
+    posts: List[Articles] = []
     posts_count: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class UserProfileResponse(BaseModel):
-    id: str
+    id: int
     username: str
     first_name: str
     last_name: str
@@ -74,5 +71,5 @@ class UserProfileResponse(BaseModel):
     facebook: str | None = " "
     instagram: str | None = " "
     last_updated_at: str
-    posts: List[Articles]
+    posts: List[Articles] = []
     posts_count: int

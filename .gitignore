@@ -5,6 +5,7 @@
 /blogging_app/__pycache__
 /blogging_app/auth/__pycache__
 /blogging_app/routers/__pycache__
-/venv
+/vblog
+/instance/__pycache__
 
 meet.txt

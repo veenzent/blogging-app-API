@@ -1,15 +1,11 @@
 from fastapi import APIRouter, Form, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from typing import Annotated, Optional
-import uuid
 from blogging_app import schemas, models
 from blogging_app.database import get_db
 from sqlalchemy.orm import Session
-import csv
 from datetime import datetime, timedelta
 from blogging_app.auth import auth_handler
-from blogging_app.dependencies import add_article_to_DB, username_in_DB, all_articles_cache, all_users_cache, username_in_DB, add_user_to_DB, get_user_signup_details, get_articles_by_author, UsersDB_header, article_header, find_article_by_title, update_user_profile, email_in_DB
-from blogging_app import dependencies
 
 
 home_routes = APIRouter()
@@ -112,13 +108,13 @@ async def sign_up(
             first_name=first_name,
             last_name=last_name,
             email=email, 
-            password=auth_handler.get_password_hash(password)
+            password=auth_handler.get_password_hash(password),
+            last_updated_at=datetime.strptime(datetime.now().strftime("%d-%m-%Y %H:%M:%S"), "%d-%m-%Y %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S")
         )
         try:
             db.add(user)
             db.commit()
             db.refresh(user)
-            # user_id = user.user_id
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=500, detail="Internal server error")
@@ -126,7 +122,7 @@ async def sign_up(
 
 
 # - - - - - L O G I N / S I G N - I N- - - - - -
-@home_routes.post("/sign-in", response_model=schemas.Token)
+@home_routes.post("/token", response_model=schemas.Token)
 async def sign_in(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session = Depends(get_db)):
     """
     Signs in a user with their provided username and password.
@@ -143,17 +139,17 @@ async def sign_in(form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db
     """
     credential_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password", headers={"WWW-Authenticate": "Bearer"})
 
-    user_password = db.query(models.User).filter(models.User.username == form_data.username).first().password
-    if user_password and auth_handler.verify_password(form_data.password, user_password):
+    user = db.query(models.User).filter(models.User.username == form_data.username).first()
+    if user.password and auth_handler.verify_password(form_data.password, user.password):
         access_token_expires = timedelta(minutes=auth_handler.ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = auth_handler.create_access_token(data={"sub": user_password[1]}, expires_delta=access_token_expires)
+        access_token = auth_handler.create_access_token(data={"sub": user.username}, expires_delta=access_token_expires)
     else:
         raise credential_exception
     return {"access_token": access_token, "token_type": "bearer"}
 
 
 # - - - - - U P D A T E - P R O F I L E - - - - -
-@home_routes.put("/dashboard/{username}/update-profile", response_model=schemas.UserProfile)
+@home_routes.put("/dashboard/{username}/update-profile", response_model=schemas.UserProfileResponse)
 async def update_profile(
     username: Annotated[str, Depends(auth_handler.authorize_url)],
     bio: Optional[Annotated[str | None, Form(default="Write something about yourself!")]],
@@ -187,55 +183,40 @@ async def update_profile(
         user.twitter = twitter
         user.facebook = facebook
         user.instagram = instagram
-        return {
-            "bio": user.bio,
-            "website": user.website,
-            "twitter": user.twitter,
-            "facebook": user.facebook,
-            "instagram": user.instagram
-        }
-    # if username_in_DB(username):
-    #     signup_data = get_user_signup_details(username)
-    #     author = f"{signup_data[2]} {signup_data[3]}"
-    #     articles = get_articles_by_author(author)
-    #     profile_update = schemas.UserProfile(
-    #         id=signup_data[0],
-    #         username=signup_data[1],
-    #         first_name=signup_data[2],
-    #         last_name=signup_data[3],
-    #         email=signup_data[4],
-    #         password=signup_data[5],            
-    #         bio=bio,
-    #         website=website,
-    #         twitter=twitter,
-    #         facebook=facebook,
-    #         instagram=instagram,
-    #         last_updated_at=str(datetime.today().strftime("%d-%B-%Y %H:%M:%S")),
-    #         posts=[article for article in articles],
-    #         posts_count=len(articles)
-    #     )
+        user.posts = db.query(models.Articles).filter(models.Articles.author_username == user.username).all()
+        user.posts_count = len(user.posts)
+        user.last_updated_at = datetime.strptime(datetime.now().strftime("%d-%m-%Y %H:%M:%S"), "%d-%m-%Y %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S")
 
-    #     update = [
-    #         profile_update.id, profile_update.username, profile_update.first_name, profile_update.last_name, profile_update.email, profile_update.password, profile_update.bio, profile_update.website, profile_update.twitter, profile_update.facebook, profile_update.instagram, profile_update.last_updated_at, profile_update.posts, profile_update.posts_count
-    #     ]
-    #     update[12] = articles
-    #     update_user_profile(signup_data, update)
-    #     return profile_update
+        updated_profile = {
+            "id":user.user_id,
+            **user.__dict__
+        }
+
+        try:
+            db.commit()
+            db.refresh(user)
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Internal server error")
+        return updated_profile
     raise HTTPException(status_code=404, detail="User not found!")
 
 
 # - - - - - M Y - P R O F I L E - - - - -
 @home_routes.get("/dashboard/profile", response_model=schemas.UserProfileResponse)
-async def my_profile(username: Annotated[str, Depends(auth_handler.authorize_url)]):
-    users = all_users_cache()
-    for user in users:
-        if username == user[1]:
-            author = f"{user[2]} {user[3]}"
-            articles = get_articles_by_author(author)
-            profile = schemas.UserProfileResponse(
-                id=user[0], username=user[1], first_name=user[2], last_name=user[3], email=user[4], password=user[5], bio=user[6], website=user[7], twitter=user[8], facebook=user[9], instagram=user[10], last_updated_at=user[11], posts=[schemas.Articles(**article) for article in articles], posts_count= len(articles)
-            )
-            return profile
+async def my_profile(username: Annotated[str, Depends(auth_handler.authorize_url)], db: Session = Depends(get_db)):
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if user:
+        user.posts = db.query(models.Articles).filter(models.Articles.author_username == user.username).all()
+        user.posts_count = len(user.posts)
+        user.last_updated_at = datetime.strptime(str(user.last_updated_at), "%Y-%m-%d %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S")
+        
+        profile = {
+            "id": user.user_id,
+            **user.__dict__
+        }
+        return profile
+    raise HTTPException(status_code=404, detail="User not found!")
 
 
 # - - - - - C R E A T E - B L O G - - - - -
@@ -243,7 +224,8 @@ async def my_profile(username: Annotated[str, Depends(auth_handler.authorize_url
 async def create_blog(
     username: Annotated[str, Depends(auth_handler.authorize_url)],
     title: Annotated[str, Form()],
-    content: Annotated[str, Form(...)]
+    content: Annotated[str, Form(...)],
+    db: Session = Depends(get_db)
 ):
     """
     Creates a new blog post.
@@ -259,24 +241,41 @@ async def create_blog(
     Raises:
         HTTPException: If the user is not found in the database.
     """
-    # get author
-    author = ""
-    print(username)
-    with open("blogging_app/UsersDB.csv", "r") as UsersDB:
-        reader = csv.reader(UsersDB)
-        next(reader)
-        for user in reader:
-            if username == user[1]:
-                author = f"{user[2]} {user[3]}"
-                article = schemas.Articles(title=title, author=author, content=content, date_published=str(datetime.today().strftime("%d-%B-%Y %H:%M:%S")))
-                add_article_to_DB(article)
-                return article
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if user:
+        author = f"{user.first_name} {user.last_name}"
+        article = models.Articles(
+            title = title,
+            author = author,
+            author_username = user.username,
+            content = content,
+            date_published = datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+            # last_updated = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+        )
+        try:
+            db.add(article)
+            db.commit()
+            db.refresh(article)
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Internal server error")
+        print(article.id)
+        print(article.title)
+        created_article = schemas.Articles(
+            id = article.id,
+            title = article.title,
+            author = article.author,
+            content = article.content,
+            date_published = datetime.strptime(str(article.date_published), "%Y-%m-%d %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S")
+        )
+        
+        return created_article
     raise HTTPException(status_code=404, detail="User not found, Sign up to start writing blogs!")
 
 
 # - - - - - E D I T - A R T I C L E - - - - -
 @home_routes.put("/dashboaard/{username}/edit-blog", response_model=schemas.UpdateArticleResponse)
-async def edit_blog(username: Annotated[str, Depends(auth_handler.authorize_url)], title: str, updated_article: schemas.UpdateArticle):
+async def edit_blog(username: Annotated[str, Depends(auth_handler.authorize_url)], article_id: int, update: schemas.UpdateArticle, db: Session = Depends(get_db)):
     """
     Edit a blog article by title.
 
@@ -307,26 +306,36 @@ async def edit_blog(username: Annotated[str, Depends(auth_handler.authorize_url)
     - The `UpdateArticle` object contains the updated article's title, content,
       and date published.
     """
-    user = username_in_DB(username)
-    if user:
-        caches = all_articles_cache()
+    article = db.query(models.Articles).filter(models.Articles.id == article_id).first()
+    if article:
+        article.title = update.title
+        article.content = update.content
+        article.last_updated = datetime.today().strftime("%d-%B-%Y %H:%M:%S")
 
-        with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
-            writer = csv.writer(all_articles)
-            writer.writerow(article_header)
-            for i, article in enumerate(caches):
-                if title == article[0]:
-                    update = [updated_article.title, caches[i][1], updated_article.content, caches[i][3]]
-                    writer.writerow(update)
-                else:
-                    writer.writerow(article)
-        return schemas.UpdateArticleResponse(title=updated_article.title, author=update[1], content=updated_article.content, date_published=update[3], last_updated=datetime.today().strftime("%d-%B-%Y %H:%M:%S"))
-    raise HTTPException(status_code=404, detail="Title not found!")
+        updated_article = {
+            "id": article.id,
+            "title": article.title,
+            "content": article.content,
+            "author": article.author,
+            "date_published": datetime.strptime(str(article.date_published), "%Y-%m-%d %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S"),
+            "last_updated": article.last_updated
+        }
+
+        try:
+            db.commit()
+            db.refresh(article)
+        except Exception as e:
+            db.rollback()
+            print(e)
+            raise HTTPException(status_code=500, detail="Internal server error")
+
+        return updated_article
+    raise HTTPException(status_code=404, detail="Article not found!")
 
 
 # - - - - - M Y - B L O G S - - - - -
 @home_routes.get("/dashboaard/{username}/my-blogs")
-async def my_blogs(username: Annotated[str, Depends(auth_handler.authorize_url)]):
+async def my_blogs(username: Annotated[str, Depends(auth_handler.authorize_url)], db: Session = Depends(get_db)):
     """
     Retrieves the blogs created by the specified user.
 
@@ -341,23 +350,17 @@ async def my_blogs(username: Annotated[str, Depends(auth_handler.authorize_url)]
             - status_code: The HTTP status code indicating the error.
             - detail: A description of the error.
     """
-    if username_in_DB(username):
-        with open("blogging_app/UsersDB.csv", "r") as UsersDB:
-            reader = csv.reader(UsersDB)
-            next(reader)
-            for user in reader:
-                if username == user[1]:
-                    author = f"{user[2]} {user[3]}"
-        articles = get_articles_by_author(author)
-        if articles:
-            return {"my blogs": articles}
-        return {"my blogs": [], "message": "You have not created any blogs yet!"}
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if user:
+        author = f"{user.first_name} {user.last_name}"
+        my_blogs = db.query(models.Articles).filter(models.Articles.author == author).all()
+        return my_blogs
     raise HTTPException(status_code=404, detail="User not found!")
 
 
 # - - - - - D E L E T E - A R T I C L E - - - -
-@home_routes.delete("/dashboaard/{username}/{title}/delete-blog")
-async def delete_blog(username: Annotated[str, Depends(auth_handler.authorize_url)], title: str):
+@home_routes.delete("/dashboaard/{username}/{id}/delete-blog")
+async def delete_blog(username: Annotated[str, Depends(auth_handler.authorize_url)], article_id: int, db: Session = Depends(get_db)):
     """
     Delete a blog article from the user's dashboard.
 
@@ -371,26 +374,19 @@ async def delete_blog(username: Annotated[str, Depends(auth_handler.authorize_ur
     Raises:
         HTTPException: If the user or the blog article is not found.
     """
-    if username_in_DB(username):
-        blog = find_article_by_title(title)
-        if blog:
-            caches = all_articles_cache()
-            with open("blogging_app/all_articles.csv", "w", newline="") as all_articles:
-                writer = csv.writer(all_articles)
-                writer.writerow(article_header)
-                for article in caches:
-                    if blog == article:
-                        continue
-                    else:
-                        writer.writerow(article)
-            return {"message": "Article deleted!"}
-        raise HTTPException(status_code=404, detail=f"No blog with title: {title}!")
-    raise HTTPException(status_code=404, detail="User not found!")
+    article = db.query(models.Articles).filter(models.Articles.id == article_id).first()
+
+    if article:
+        db.delete(article)
+        db.commit()
+        return {"message": "Article deleted successfully!"}
+    
+    raise HTTPException(status_code=404, detail=f"No Article with specified id: {article_id}!")
 
 
 # - - - - - D E L E T E - A C C O U N T - - - - -
 @home_routes.delete("/delete-account")
-async def delete_account(username: Annotated[str, Depends(auth_handler.authorize_url)]):
+async def delete_account(username: Annotated[str, Depends(auth_handler.authorize_url)], db: Session = Depends(get_db)):
     """
     Deletes the user account with the specified username.
 
@@ -403,15 +399,10 @@ async def delete_account(username: Annotated[str, Depends(auth_handler.authorize
     Raises:
         HTTPException: If the specified username is not found in the database.
     """
-    if username_in_DB(username):
-        users = all_users_cache()
-        with open("blogging_app/UsersDB.csv", "w", newline="") as UsersDB:
-            writer = csv.writer(UsersDB)
-            writer.writerow(UsersDB_header)
-            for user in users:
-                if user[1] == username:
-                    continue
-                else:
-                    writer.writerow(user)
+    user = db.query(models.User).filter(models.User.username == username).first()
+
+    if user:
+        db.delete(user)
+        db.commit()
         return {"message": "Account deleted successfully!"}
     raise HTTPException(status_code=404, detail="User not found!")

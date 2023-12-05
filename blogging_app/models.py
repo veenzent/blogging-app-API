@@ -1,13 +1,7 @@
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
-from sqlalchemy.orm import relationship, sessionmaker
+from sqlalchemy.orm import relationship
 from .database import Base
-
-
-from fastapi import Form
-from pydantic import BaseModel
-from typing import List, Optional, Annotated
-
 
 
 # User Sign-in
@@ -25,7 +19,7 @@ class User(Base):
     twitter = Column(String(100))
     facebook = Column(String(100))
     instagram = Column(String(100))
-    last_updated_at = Column(String(100))
+    last_updated_at = Column(DateTime(), index=True, default=datetime.utcnow)
     
     posts = relationship("Articles", back_populates="user")
     posts_count = Column(Integer, default=0)
