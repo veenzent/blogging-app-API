@@ -23,6 +23,13 @@ class User(BaseModel):
     email: str
     password: str
 
+class LatestArticleResponse(BaseModel):
+    title: str
+    author: str
+    content: str
+    date_published: str
+    last_updated: str
+
 class Articles(BaseModel):
     id: int
     title: str

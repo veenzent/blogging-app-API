@@ -46,24 +46,23 @@ async def contacts():
 @home_routes.get("/get-blogs")
 async def get_latest_blogs(db: Session = Depends(get_db)):
     """
-    Retrieves the latest blogs from the articles database file.
-
-    Returns:
-    dict: A dictionary containing the latest blogs, where the keys are the blog titles and the values are the corresponding blog articles.
+    Retrieves the latest blogs from the articles database.
     """
-    latest = db.query(models.Articles).all()
-    return latest
+    blogs = db.query(models.Articles).all()
+    new_blogs = sorted(blogs, key=lambda x: x.last_updated, reverse=True)
 
-    # with open("blogging_app/all_articles.csv", "r") as all_articles:
-    #     reader = csv.reader(all_articles)
-    #     next(reader)
-    #     reader = sorted(reader, key=lambda x: x[3], reverse=True)
-    #     trending = []
-    #     for i, article in enumerate(reader):
-    #         if i <= 4:
-    #             article = schemas.Articles(title=article[0], author=article[1], content=article[2], date_published=article[3])
-    #             trending.append(article)
-    # return{"Latest Blogs": trending}
+    latest_blogs = []
+    for i, latest in enumerate(new_blogs):
+        if i <= 4:
+            # fix: date format displaying day as month
+            latest_blogs.append(schemas.LatestArticleResponse(
+                title = latest.title,
+                author = latest.author,
+                content = latest.content,
+                date_published = datetime.strptime(str(latest.date_published), "%Y-%d-%m %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S"),
+                last_updated = datetime.strptime(str(latest.last_updated), "%Y-%m-%d %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S")
+            ))
+    return latest_blogs
 
 
 # - - - - - S I G N - U P - - - - -
@@ -249,8 +248,8 @@ async def create_blog(
             author = author,
             author_username = user.username,
             content = content,
-            date_published = datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
-            # last_updated = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+            date_published = datetime.now().strftime("%m-%d-%Y %H:%M:%S"),
+            last_updated = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
         )
         try:
             db.add(article)
