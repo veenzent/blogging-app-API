@@ -4,3 +4,4 @@ from decouple import config
 SECRET_KEY = config("secret")
 ALGORITHM = config("algorithm")
 DATABASE_URL = config("database_url")
+EMAIL_PASSWORD = config("email_password")

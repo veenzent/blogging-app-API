@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from blogging_app import schemas, models
 from instance.config import SECRET_KEY, ALGORITHM
 from sqlalchemy.orm import Session
-from blogging_app.database import get_db
+from blogging_app import dependencies
 
 SECRET_KEY = SECRET_KEY
 ALGORITHM = ALGORITHM
@@ -18,7 +18,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token")
 
 auth_routes = APIRouter()
 
-db_dependency = Annotated[Session, Depends(get_db)]
+db_dependency = Annotated[Session, Depends(dependencies.get_db)]
 
 
 def verify_password(plain_password, hashed_password):
@@ -62,7 +62,7 @@ async def sign_up(
   email: Annotated[str, Form(max_length=100)],
   password: Annotated[str, Form(max_length=100)],
   confirm_password: Annotated[str, Form(max_length=100)],
-  db: Annotated[Session, Depends(get_db)],
+  db: db_dependency
 ):
     """
     Handle the sign-up request.
@@ -90,21 +90,27 @@ async def sign_up(
     if email_in_DB_update:
         raise HTTPException(status_code=400, detail="Email already exists!")
     else:
-        user = models.User(
-            username=username,
-            first_name=first_name,
-            last_name=last_name,
-            email=email, 
-            password=get_password_hash(password),
-            last_updated_at=datetime.strptime(datetime.now().strftime("%d-%m-%Y %H:%M:%S"), "%d-%m-%Y %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S")
-        )
-        try:
-            db.add(user)
-            db.commit()
-            # db.refresh(user)
-        except Exception as e:
-            db.rollback()
-            raise HTTPException(status_code=500, detail="Internal server error")
+        otp = dependencies.generate_otp()
+        dependencies.send_mail(
+            email,
+            email_subject="BLOG APP OTP",
+            email_body=f"Your OTP is: {otp}"
+            )
+        # user = models.User(
+        #     username=username,
+        #     first_name=first_name,
+        #     last_name=last_name,
+        #     email=email, 
+        #     password=get_password_hash(password),
+        #     last_updated_at=datetime.strptime(datetime.now().strftime("%d-%m-%Y %H:%M:%S"), "%d-%m-%Y %H:%M:%S").strftime("%d-%B-%Y %H:%M:%S")
+        # )
+        # try:
+        #     db.add(user)
+        #     db.commit()
+        #     # db.refresh(user)
+        # except Exception as e:
+        #     db.rollback()
+        #     raise HTTPException(status_code=500, detail="Internal server error")
     return {"message": "Sign-up successful!."}
 
 

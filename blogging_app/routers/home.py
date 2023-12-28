@@ -3,7 +3,7 @@ from datetime import datetime
 from fastapi import APIRouter, Form, HTTPException, Depends
 from sqlalchemy.orm import Session
 from blogging_app import schemas, models
-from blogging_app.database import get_db
+from blogging_app.dependencies import get_db
 from blogging_app.auth import auth_handler
 
 
